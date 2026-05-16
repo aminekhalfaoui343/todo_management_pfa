@@ -49,16 +49,17 @@ systemctl enable tomcat
 cd /tmp/
 wget https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
 unzip apache-maven-3.9.9-bin.zip
-cp -r apache-maven-3.9.9 /usr/local/maven3.9
+mkdir -p /usr/local/maven3.9
+cp -r apache-maven-3.9.9/* /usr/local/maven3.9/
 export MAVEN_OPTS="-Xmx512m"
 
-git clone -b local https://github.com/hkhcoder/vprofile-project.git
-cd vprofile-project
+git clone -b local https://github.com/aminekhalfaoui343/todo_management_pfa.git
+cd todo_management_pfa
 /usr/local/maven3.9/bin/mvn install
 systemctl stop tomcat
 sleep 20
 rm -rf /usr/local/tomcat/webapps/ROOT*
-cp target/vprofile-v2.war /usr/local/tomcat/webapps/ROOT.war
+cp target/todo-management.war /usr/local/tomcat/webapps/ROOT.war
 systemctl start tomcat
 sleep 20
 systemctl stop firewalld

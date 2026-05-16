@@ -21,7 +21,7 @@ sudo mysql -u root -p"$DATABASE_PASS" -e "FLUSH PRIVILEGES"
 sudo mysql -u root -p"$DATABASE_PASS" -e "create database todo_db"
 sudo mysql -u root -p"$DATABASE_PASS" -e "grant all privileges on todo_db.* TO 'admin'@'localhost' identified by 'admin123'"
 sudo mysql -u root -p"$DATABASE_PASS" -e "grant all privileges on todo_db.* TO 'admin'@'%' identified by 'admin123'"
-sudo mysql -u root -p"$DATABASE_PASS" todo_db < script.sql
+sudo mysql -u root -p"$DATABASE_PASS" todo_db < src/main/resources/script.sql
 sudo mysql -u root -p"$DATABASE_PASS" -e "FLUSH PRIVILEGES"
 
 # Restart mariadb-server
