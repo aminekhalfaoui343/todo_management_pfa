@@ -1,32 +1,40 @@
+#!/bin/bash
 # adding repository and installing nginx		
 apt update
-apt install nginx -y
-cat <<EOT > vproapp
-upstream vproapp {
+apt install nginx curl -y
 
- server app01:8080;
-
+# Create nginx configuration
+cat <<EOT > /etc/nginx/sites-available/todo_management
+upstream todoapp {
+    server app01:8080;
 }
 
 server {
+    listen 80;
+    server_name _;
 
-  listen 80;
-
-location / {
-
-  proxy_pass http://vproapp;
-
+    location / {
+        proxy_pass http://todoapp;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
 }
-
-}
-
 EOT
 
-mv vproapp /etc/nginx/sites-available/vproapp
-rm -rf /etc/nginx/sites-enabled/default
-ln -s /etc/nginx/sites-available/vproapp /etc/nginx/sites-enabled/vproapp
+# Enable the site
+rm -f /etc/nginx/sites-enabled/default
+ln -sf /etc/nginx/sites-available/todo_management /etc/nginx/sites-enabled/todo_management
 
-#starting nginx service and firewall
+# Test nginx configuration
+nginx -t
+
+# Start nginx service
 systemctl start nginx
 systemctl enable nginx
 systemctl restart nginx
+
+# Test nginx
+echo "Testing nginx configuration..."
+curl -I http://localhost:80/
