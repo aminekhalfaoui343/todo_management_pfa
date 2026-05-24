@@ -40,21 +40,57 @@ systemctl enable tomcat
 
 cd /tmp/
 wget https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
-unzip apache-maven-3.9.9-bin.zip
+unzip -o apache-maven-3.9.9-bin.zip
 mkdir -p /usr/local/maven3.9
 cp -r apache-maven-3.9.9/* /usr/local/maven3.9/
 export MAVEN_OPTS="-Xmx512m"
 export PATH=$PATH:/usr/local/maven3.9/bin
 
-git clone -b local https://github.com/aminekhalfaoui343/todo_management_pfa.git
-cd todo_management_pfa
+# Clone the repository - using 'main' branch instead of 'local'
+echo "Cloning repository..."
+git clone -b main https://github.com/aminekhalfaoui343/todo_management_pfa.git
+
+# Check if clone was successful
+if [ ! -d "todo_management_pfa" ]; then
+    echo "Failed to clone repository, trying without branch specification..."
+    git clone https://github.com/aminekhalfaoui343/todo_management_pfa.git
+fi
+
+# Verify directory exists
+if [ -d "todo_management_pfa" ]; then
+    cd todo_management_pfa
+    echo "Successfully entered todo_management_pfa directory"
+    pwd
+    ls -la
+else
+    echo "ERROR: todo_management_pfa directory not found!"
+    exit 1
+fi
 
 # Fix database name in source code
-find ./src -type f -name "*.properties" -exec sed -i 's/accounts/todo_db/g' {} \;
-find ./src -type f -name "*.xml" -exec sed -i 's/accounts/todo_db/g' {} \;
-find ./src -type f -name "*.java" -exec sed -i 's/accounts/todo_db/g' {} \;
+echo "Updating database name in source code..."
+find ./src -type f -name "*.properties" -exec sed -i 's/accounts/todo_db/g' {} \; 2>/dev/null || true
+find ./src -type f -name "*.xml" -exec sed -i 's/accounts/todo_db/g' {} \; 2>/dev/null || true
+find ./src -type f -name "*.java" -exec sed -i 's/accounts/todo_db/g' {} \; 2>/dev/null || true
 
+# Build the application
+echo "Building application with Maven..."
 /usr/local/maven3.9/bin/mvn clean install -DskipTests
+
+# Check if build was successful
+if [ $? -ne 0 ]; then
+    echo "Maven build failed!"
+    exit 1
+fi
+
+# Check if WAR file exists
+if [ ! -f "target/todo-management.war" ]; then
+    echo "WAR file not found! Checking target directory..."
+    ls -la target/
+    exit 1
+fi
+
+echo "WAR file found, proceeding with deployment..."
 
 systemctl stop tomcat
 sleep 10
@@ -63,6 +99,7 @@ rm -rf /usr/local/tomcat/webapps/todo-management*
 
 # Copy WAR file
 cp target/todo-management.war /usr/local/tomcat/webapps/ROOT.war
+echo "WAR file copied successfully"
 
 systemctl start tomcat
 echo "Waiting for Tomcat to extract WAR file..."
@@ -70,13 +107,27 @@ sleep 30
 
 # Copy application.properties
 if [ -d "/usr/local/tomcat/webapps/ROOT/WEB-INF/classes/" ]; then
-    cp /vagrant/application.properties /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/
-    chown tomcat.tomcat /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/application.properties
-    echo "Application properties copied successfully"
+    if [ -f "/vagrant/application.properties" ]; then
+        cp /vagrant/application.properties /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/
+        chown tomcat.tomcat /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/application.properties
+        echo "Application properties copied successfully"
+    else
+        echo "WARNING: application.properties not found in /vagrant/"
+    fi
 else
-    echo "ERROR: ROOT directory not found after 30 seconds"
-    ls -la /usr/local/tomcat/webapps/
-    exit 1
+    echo "WARNING: ROOT/WEB-INF/classes/ directory not found yet"
+    echo "Waiting additional 20 seconds..."
+    sleep 20
+    if [ -d "/usr/local/tomcat/webapps/ROOT/WEB-INF/classes/" ]; then
+        if [ -f "/vagrant/application.properties" ]; then
+            cp /vagrant/application.properties /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/
+            chown tomcat.tomcat /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/application.properties
+            echo "Application properties copied successfully"
+        fi
+    else
+        echo "ERROR: ROOT directory still not found"
+        ls -la /usr/local/tomcat/webapps/
+    fi
 fi
 
 systemctl restart tomcat
@@ -88,8 +139,8 @@ systemctl disable firewalld
 
 # Test the application
 echo "Testing application locally..."
-curl -I http://localhost:8080/
+curl -I http://localhost:8080/ || echo "Application not yet ready, checking logs..."
 
 # Check Tomcat logs
 echo "=== Tomcat Logs ==="
-tail -20 /usr/local/tomcat/logs/catalina.out
+tail -30 /usr/local/tomcat/logs/catalina.out
